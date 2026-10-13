@@ -15,6 +15,13 @@ The upstream ARTEX project's per-version release history (0.3.x and earlier) and
 - **Changing the password invalidates every existing token.** The JWT signing key is derived from the password hash, so a change through the UI, `reset-password.sh`, or a direct DB edit ends earlier sessions. Users must log in once after upgrading. The change-password response carries a fresh token so the current browser session continues.
 - **Replaced wildcard CORS with an allowlist.** Instead of `Access-Control-Allow-Origin: *`, headers are only sent for origins in `ARTEX_CORS_ORIGINS` (default: `next dev` at `http://localhost:5173`). Also added server-side minimum password length (8) and audit logs for failed initialisation/login attempts (with client address).
 
+### Upstream 0.3.15 sync
+
+Ported to this fork's structure the two upstream changes that landed between the fork point (upstream `d003372`) and upstream v0.3.15. Every other 0.3.15 entry was already in before the fork.
+
+- **Password state now fails closed when it cannot be read (upstream #197).** A failed DB read is no longer treated as "no password": `/api/auth/status`, `init`, `login` and `change-password` answer 503 and token verification is refused. The `/setup` screen shows a retry notice instead of the form when it cannot confirm the state. The first password is stored with `INSERT … ON CONFLICT DO NOTHING`, so concurrent initialisation from several instances never overwrites an existing value. Also added bcrypt's 72-byte maximum and a DB connection-pool cap (32).
+- **Model judge (fallback approval) token usage is reported separately (upstream #191).** Judge calls are metered as `worker=judge`, served by the new `GET /api/intercept/judge/usage`. Under the model judge switch in "System → Command interception", a card shows cumulative calls, input, output and cache read/write plus a 30-day daily bar chart.
+
 ### Localization (i18n)
 
 - **Added switching to English, Chinese and Spanish.** Korean remains the default. Picking a language under "Display language" in Settings switches the web UI (`web/messages/{ko,en,zh,es}.json`), agent-written reports, summaries and chat replies, and server error messages and status labels together. Operator console logs and the server default follow `ARTEX_LANG` (or `language` in the config file). The agent's behavioural-instruction body is still left in its original language.

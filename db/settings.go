@@ -25,6 +25,26 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, key
 	return err
 }
 
+// InsertSettingIfAbsent writes value only when key does not exist yet, leaving an
+// existing value untouched and reporting inserted=false. It backs keys that may be
+// set only once, such as auth.password_hash: the guarantee rests on the primary-key
+// constraint, so a caller's preceding GetSetting check is just a fast-fail path —
+// a failed read or a concurrent writer can never get an existing value overwritten
+// by ON CONFLICT DO UPDATE.
+func (d *DB) InsertSettingIfAbsent(key, value string) (inserted bool, err error) {
+	res, err := d.Exec(`
+INSERT INTO settings(key, value) VALUES ($1, $2)
+ON CONFLICT (key) DO NOTHING`, key, value)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // GetBool returns the boolean setting, or def when unset/unparseable.
 func (d *DB) GetBool(key string, def bool) bool {
 	v, ok, err := d.GetSetting(key)
